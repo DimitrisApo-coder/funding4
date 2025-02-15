@@ -1,0 +1,128 @@
+<script setup>
+// @EXERCISE: If user is authenticated redirect to the requested URL.
+// @EXERCISE: If user is not authenticated, keep the requested URL and after a successful authentication redirect to the requested resource.
+import { onBeforeMount, ref, computed } from 'vue'; // Add computed
+import { useRouter, useRoute } from 'vue-router'; // Add useRoute
+import { useApplicationStore } from '@/stores/application.js';
+const backendEnvVar = import.meta.env.VITE_BACKEND;
+
+const router = useRouter();
+const route = useRoute();
+const { setUserData, persistUserData, isAuthenticated } = useApplicationStore();
+
+const loading = ref(false);
+const credentials = ref({
+    username: '',
+    password: ''
+});
+const authenticationFailed = ref(false);
+
+const registrationSuccess = computed(() => route.query.registered === 'success');
+
+const onFormSubmit = () => {
+    loading.value = true;
+    authenticationFailed.value = false;
+
+    fetch('http://localhost:9090/api/auth/signin', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(credentials.value)
+    })
+        .then((response) => {
+            if (response.ok) {
+                response.json().then((data) => {
+                    setUserData(data);
+                    persistUserData();
+                    router.push({ name: 'home' });
+                });
+            } else {
+                authenticationFailed.value = true;
+            }
+        })
+        .catch((err) => {
+            console.warn(err);
+            authenticationFailed.value = true;
+        })
+        .finally(() => {
+            loading.value = false;
+        });
+};
+
+onBeforeMount(() => {
+    if (isAuthenticated === true) {
+        router.push({ name: 'home' });
+    }
+});
+
+</script>
+
+<template>
+    <div class="bg-body-tertiary">
+        <div class="container">
+            <div class="row py-4 px-3">
+                <div class="col-4">
+                    <div class="mb-4">
+                        <h1 class="fs-3">Login</h1>
+                    </div>
+                    <div class="spinner-border" role="status" v-if="loading">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <form v-else>
+                        <!-- Add success message -->
+                        <div class="mb-2" v-if="registrationSuccess">
+                            <div class="alert alert-success" role="alert">
+                                Registration successful! Please login with your credentials.
+                            </div>
+                        </div>
+                        <div class="mb-2" v-if="authenticationFailed">
+                            <!--
+              @EXERCISE: Be more specific.
+              E.g., user does not exist, credentials are not valid, etc.
+              Always consider security, i.e., sometimes you may not want to unveil information.
+              -->
+                            <div class="alert alert-danger" role="alert">
+                                Authentication failed!
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label for="usernameFormControl" class="form-label mb-1"
+                                >Email address or Username</label
+                            >
+                            <input
+                                v-model="credentials.username"
+                                type="text"
+                                class="form-control"
+                                id="usernameFormControl"
+                            />
+                        </div>
+                        <div class="mb-2">
+                            <label for="passwordFormControl" class="form-label mb-1"
+                                >Password</label
+                            >
+                            <input
+                                v-model="credentials.password"
+                                type="password"
+                                class="form-control"
+                                id="passwordFormControl"
+                            />
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button @click="onFormSubmit" type="submit" class="btn btn-primary">
+                                Login
+                                <span class="fst-italic" v-if="credentials.username">
+                                    as {{ credentials.username }}
+                                </span>
+                            </button>
+                            <RouterLink :to="{ name: 'signup' }" class="btn btn-link">
+                                Need an account? Sign up
+                            </RouterLink>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
